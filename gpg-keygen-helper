@@ -35,10 +35,10 @@ GenerateKey() {
 EOL
 }
 
-FINGERPRINT="$(GenerateKey)"
+readonly FINGERPRINT="$(GenerateKey)"
 # There should be a new gpg homedir with only one key generated at this point so rely on a glob expression to find the
 # KEY_ID should be acceptable.
-KEY_ID="$(basename ${GPG_HOME}/openpgp-revocs.d/*.rev | cut --delimiter "." --fields 1)"
+readonly KEY_ID="$(basename ${GPG_HOME}/openpgp-revocs.d/*.rev | cut --delimiter "." --fields 1)"
 
 # Putting variables inside a file that shell scripts can source avoids unneccessary string processing
 cat<<EOL > "${GPG_CONFIG}"

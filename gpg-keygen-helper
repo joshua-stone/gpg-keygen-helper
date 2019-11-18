@@ -1,0 +1,66 @@
+#!/usr/bin/bash
+
+set -e
+set -u
+
+readonly USER_NAME="$(git config --local --get user.name)"
+readonly USER_EMAIL="$(git config --local --get user.email)"
+readonly GPG_HOME="gpghome"
+readonly GPG_CONFIG="gpghome.cfg"
+readonly PUBLIC_KEY="public.key"
+
+if [[ -z "${USER_NAME}" || -z  "${USER_EMAIL}" ]]; then
+    echo "Local git config must contain name and email. Run \`git config --local user.name USER && git config --local user.email EMAIL\` and try again"
+    exit 1
+fi
+
+if [[ -e "${GPG_HOME}" ]]; then
+    echo "gpg homedir \"${GPG_HOME}\" already exists. Run \`rm -rf ${GPG_HOME}\` and try again"
+    exit 1
+fi
+
+# gpg will complain about permissions that allow for other users to read the keys inside
+mkdir --mode 700 "${GPG_HOME}"
+
+GenerateKey() {
+    cat<<EOL | gpg --quiet --homedir "${GPG_HOME}" --batch --full-generate-key 2>&1 | cut --delimiter " " --fields 3
+         Key-Type: RSA
+         Key-Length: 4096
+         Name-Real: ${USER_NAME}
+         Name-Comment: Script-generated key
+         Name-Email: ${USER_EMAIL}
+       # Passphrase:
+	 Expire-Date: 0
+         %commit
+EOL
+}
+
+FINGERPRINT="$(GenerateKey)"
+# There should be a new gpg homedir with only one key generated at this point so rely on a glob expression to find the
+# KEY_ID should be acceptable.
+KEY_ID="$(basename ${GPG_HOME}/openpgp-revocs.d/*.rev | cut --delimiter "." --fields 1)"
+
+# Putting variables inside a file that shell scripts can source avoids unneccessary string processing
+cat<<EOL > "${GPG_CONFIG}"
+GPG_HOME='${GPG_HOME}'
+USER_NAME='${USER_NAME}'
+USER_EMAIL='${USER_EMAIL}'
+FINGERPRINT='${FINGERPRINT}'
+KEY_ID='${KEY_ID}'
+PUBLIC_KEY='${PUBLIC_KEY}'
+EOL
+
+gpg --homedir "${GPG_HOME}" --export --armor "${FINGERPRINT}" > "${PUBLIC_KEY}"
+
+AppendLine() {
+    local -r LINE="${1}"
+    local -r FILE="${2}"
+    # Make sure to insert a line only if it's not already inside the file
+    grep --quiet --line-regexp --fixed-strings "${LINE}" "${FILE}" 2> /dev/null || echo "${LINE}" >> "${FILE}"
+}
+
+readonly GITIGNORE_FILES=( "${GPG_HOME}/" "${GPG_CONFIG}" "${PUBLIC_KEY}" )
+
+for FILE in "${GITIGNORE_FILES[@]}"; do
+    AppendLine ${FILE} .gitignore
+done

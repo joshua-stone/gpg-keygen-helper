@@ -7,7 +7,7 @@ readonly USER_NAME="$(git config --local --get user.name)"
 readonly USER_EMAIL="$(git config --local --get user.email)"
 readonly GPG_HOME="gpghome"
 readonly GPG_CONFIG="gpghome.cfg"
-readonly PUBLIC_KEY="public.key"
+readonly PUBLIC_KEY="${GPG_HOME}/public.key"
 
 if [[ -z "${USER_NAME}" || -z  "${USER_EMAIL}" ]]; then
     echo "Local git config must contain name and email. Run \`git config --local user.name USER && git config --local user.email EMAIL\` and try again"
@@ -59,7 +59,7 @@ AppendLine() {
     grep --quiet --line-regexp --fixed-strings "${LINE}" "${FILE}" 2> /dev/null || echo "${LINE}" >> "${FILE}"
 }
 
-readonly GITIGNORE_FILES=( "${GPG_HOME}/" "${GPG_CONFIG}" "${PUBLIC_KEY}" )
+readonly GITIGNORE_FILES=( "${GPG_HOME}/" "${GPG_CONFIG}" )
 
 for FILE in "${GITIGNORE_FILES[@]}"; do
     AppendLine ${FILE} .gitignore
